@@ -1,0 +1,9 @@
+This directory contains example images for the Editron app.
+
+You should replace this file with actual images named:
+- landscape.jpg
+- portrait.jpg
+- city.jpg
+- food.jpg
+
+These images will be used as example starting points for users to edit.
