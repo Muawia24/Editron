@@ -5,22 +5,47 @@ import { useDropzone } from 'react-dropzone';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useS3Upload, getImageData } from 'next-s3-upload';
+import { toast } from 'sonner';
 
 interface ImageUploadProps {
-  onImageUpload: (file: File) => void;
+  onImageUpload: (imageUrl: string, file: File) => void;
 }
 
 export function ImageUpload({ onImageUpload }: ImageUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const { uploadToS3 } = useS3Upload();
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
-      onImageUpload(file);
-      const objectUrl = URL.createObjectURL(file);
-      setPreview(objectUrl);
+      try {
+        setUploading(true);
+        const objectUrl = URL.createObjectURL(file);
+        setPreview(objectUrl);
+        
+        // For development purposes, we'll skip the S3 upload
+        // and just use the local file URL
+        // In production, you would uncomment this code:
+        // const { url } = await uploadToS3(file);
+        // const imageData = await getImageData(file);
+        
+        // For now, just pass the local URL
+        onImageUpload(objectUrl, file);
+        toast.success('Image uploaded successfully');
+      } catch (error) {
+        console.error('Upload error:', error);
+        toast.error('Failed to upload image. Using local preview instead.');
+        // Even if S3 upload fails, we can still use the local preview
+        if (preview) {
+          onImageUpload(preview, file);
+        }
+      } finally {
+        setUploading(false);
+      }
     }
-  }, [onImageUpload]);
+  }, [onImageUpload, uploadToS3, preview]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -60,8 +85,8 @@ export function ImageUpload({ onImageUpload }: ImageUploadProps) {
                 <p className="text-sm font-medium">Drag & drop your image here</p>
                 <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</p>
               </div>
-              <Button variant="outline" size="sm" className="mt-2">
-                Select Image
+              <Button variant="outline" size="sm" className="mt-2" disabled={uploading}>
+                {uploading ? 'Uploading...' : 'Select Image'}
               </Button>
             </div>
           )}

@@ -10,8 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 export function Editor() {
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [prompt, setPrompt] = useState('');
+  const [s3ImageUrl, setS3ImageUrl] = useState<string | null>(null);
   
-  const handleImageUpload = (file: File) => {
+  const handleImageUpload = (imageUrl: string, file: File) => {
+    // Set the S3 URL for processing
+    setS3ImageUrl(imageUrl);
+    // Set the local object URL for preview
     const objectUrl = URL.createObjectURL(file);
     setSourceImage(objectUrl);
   };
@@ -46,7 +50,8 @@ export function Editor() {
         
         <div>
           <ImageProcessor 
-            sourceImage={sourceImage} 
+            sourceImage={sourceImage}
+            s3ImageUrl={s3ImageUrl} 
             onProcessingComplete={(resultImage) => {
               console.log('Processing complete:', resultImage);
             }} 
