@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useTransition } from 'react';
 import { useDropzone } from 'react-dropzone';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -8,61 +8,66 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useS3Upload, getImageData } from 'next-s3-upload';
 import { toast } from 'sonner';
 
-interface ImageUploadProps {
-  onImageUpload: (imageUrl: string, file: File) => void;
-}
 
-export function ImageUpload({ onImageUpload }: ImageUploadProps) {
-  const [preview, setPreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+export function ImageUpload({ 
+  onUpload,
+}:{
+  onUpload: ({
+    url,
+    width,
+    height,
+  }: {
+    url: string;
+    width: number;
+    height: number;
+  }) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [preview, setPreview] =  useState<string | null>(null);
   const { uploadToS3 } = useS3Upload();
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (file) {
-      try {
-        setUploading(true);
-        const objectUrl = URL.createObjectURL(file);
-        setPreview(objectUrl);
-        
-        // For development purposes, we'll skip the S3 upload
-        // and just use the local file URL
-        // In production, you would uncomment this code:
-        // const { url } = await uploadToS3(file);
-        // const imageData = await getImageData(file);
-        
-        // For now, just pass the local URL
-        onImageUpload(objectUrl, file);
-        toast.success('Image uploaded successfully');
-      } catch (error) {
-        console.error('Upload error:', error);
-        toast.error('Failed to upload image. Using local preview instead.');
-        // Even if S3 upload fails, we can still use the local preview
-        if (preview) {
-          onImageUpload(preview, file);
-        }
-      } finally {
-        setUploading(false);
-      }
-    }
-  }, [onImageUpload, uploadToS3, preview]);
+  const handleUpload = useCallback(
+    async (file: File) => {
+      setPreview(URL.createObjectURL(file));
+      startTransition(async () => {
+        const [result, data] = await Promise.all([
+          uploadToS3(file),
+          getImageData(file),
+        ]);
+        console.log(result.url);
+        console.log(data);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp']
+      onUpload({
+        url: result.url,
+        width: data.width ?? 1024,
+        height: data.height ?? 768,
+      });
+    })
+  }, [onUpload, uploadToS3]);
+
+   const { getRootProps, getInputProps } = useDropzone({
+    accept: { 'image/*': [] },
+    maxSize: 10 * 1024 * 1024, // 10MB
+    multiple: false,
+    onDropAccepted: (files) => {
+      if (files[0]) handleUpload(files[0]);
     },
-    maxFiles: 1,
+    onDragEnter: () => setIsDragging(true),
+    onDragLeave: () => setIsDragging(false),
+    onDrop: () => setIsDragging(false),
   });
+
 
   return (
     <Card className="w-full">
       <CardContent className="p-6">
         <div
           {...getRootProps()}
-          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/20 hover:border-primary/50'}`}
+          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/20 hover:border-primary/50'}`}
         >
-          <input {...getInputProps()} />
+          <input {...getInputProps()} ref={fileInputRef} />
           {preview ? (
             <div className="relative w-full aspect-video">
               <Image 
@@ -85,8 +90,8 @@ export function ImageUpload({ onImageUpload }: ImageUploadProps) {
                 <p className="text-sm font-medium">Drag & drop your image here</p>
                 <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 10MB</p>
               </div>
-              <Button variant="outline" size="sm" className="mt-2" disabled={uploading}>
-                {uploading ? 'Uploading...' : 'Select Image'}
+              <Button variant="outline" size="sm" className="mt-2" disabled={pending}>
+                {pending ? 'Uploading...' : 'Select Image'}
               </Button>
             </div>
           )}

@@ -46,7 +46,7 @@ export async function generateImage(
             height: adjustedDimentions.height,
             image_url: ImageUrl,
         });
-        url = json.data[0].url;
+        url = ('url' in json.data[0]) ? json.data[0].url : undefined;
     } catch(e: any) {
         console.log(e);
 
