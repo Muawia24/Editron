@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { generateImage } from '@/lib/actions';
 
 interface ImageProcessorProps {
   sourceImage: string | null;
@@ -20,39 +21,28 @@ export function ImageProcessor({ sourceImage, s3ImageUrl, onProcessingComplete }
   
   // Process image using Gemini API
   const processImage = async () => {
-    if (!sourceImage || !prompt) return;
+    if (!s3ImageUrl || !prompt) return;
     
     setIsProcessing(true);
     
     try {
-      // Import the AI processing function
-      const { processImageWithAI } = await import('@/lib/get-together');
-      
-      // Use the image URL (s3ImageUrl if available, otherwise sourceImage)
-      const imageUrl = s3ImageUrl || sourceImage;
-      console.log('Processing image with URL:', imageUrl);
+      // In a real implementation, we would use the Gemini API here
+      // with the s3ImageUrl and prompt
+      console.log('Processing image with URL:', s3ImageUrl);
       console.log('Using prompt:', prompt);
       
-      // Process the image with the Gemini API
-      const result = await processImageWithAI(imageUrl, prompt);
-      
-      if (result.success) {
-        setResultImage(result.resultImage);
+      // Simulate API call with timeout
+      setTimeout(() => {
+        // For now, just return the source image as a placeholder
+        setResultImage(sourceImage);
+        setIsProcessing(false);
         
         if (onProcessingComplete) {
-          onProcessingComplete(result.resultImage);
+          onProcessingComplete(sourceImage || '');
         }
-      } else {
-        // Show error in console
-        console.error('AI processing failed:', result.message);
-        // Fallback to original image
-        setResultImage(sourceImage);
-      }
+      }, 2000);
     } catch (error) {
       console.error('Error processing image:', error);
-      // Fallback to original image
-      setResultImage(sourceImage);
-    } finally {
       setIsProcessing(false);
     }
   };
