@@ -24,7 +24,7 @@ function slugifyPrompt(prompt?: string): string {
 export function Editor() {
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [imageData, setImageData] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
-  const [images, setImages] = useState<{ url: string; version: number }[]>([]);
+  const [images, setImages] = useState<{ url: string; version: number, prompt?: string }[]>([]);
   const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -57,6 +57,37 @@ export function Editor() {
       window.removeEventListener('new-image-session', handleNewSession);
     }
   }, [])
+
+  async function handleDownload() {
+    if (!activeImage) return;
+    const imageProps = getImageProps({
+      src: activeImage.url,
+      alt: "Generated Image",
+      height: imageData.height,
+      width: imageData.width,
+      quality: 100,
+    });
+    // Fetch the image
+    const response = await fetch(imageProps.props.src);
+    const blob = await response.blob();
+    const extension = blob.type.includes("jpeg")
+      ? "jpg"
+      : blob.type.includes("png")
+        ? "png"
+        : blob.type.includes("webp")
+          ? "webp"
+          : "bin";
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const slug = slugifyPrompt(activeImage.prompt);
+    link.download = `v${activeImage.version}-${slug}.${extension}`;
+    document.body.appendChild(link);
+    link.click();
+    
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }
 
   
   const handleExampleImageSelect = (imageSrc: string) => {
